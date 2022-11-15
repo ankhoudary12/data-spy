@@ -12,6 +12,7 @@ pandas = "^1.5.1"
 python-decouple = "^3.6"
 SQLAlchemy = "^1.4.43"
 snowflake-sqlalchemy = "^1.4.3"
+Jinja2 = "^3.1.2"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^5.0.4"

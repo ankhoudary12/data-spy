@@ -219,6 +219,28 @@ optional = false
 python-versions = ">=3.5"
 
 [[package]]
+name = "jinja2"
+version = "3.1.2"
+description = "A very fast and expressive template engine."
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+MarkupSafe = ">=2.0"
+
+[package.extras]
+i18n = ["Babel (>=2.7)"]
+
+[[package]]
+name = "markupsafe"
+version = "2.1.1"
+description = "Safely add untrusted strings to HTML/XML markup."
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[[package]]
 name = "mccabe"
 version = "0.7.0"
 description = "McCabe checker, plugin for flake8"
@@ -551,7 +573,7 @@ socks = ["PySocks (>=1.5.6,!=1.5.7,<2.0)"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "dca31aea7a0aaa93515a53ed84bf592f81fc74270ac84f8957bb0bc30a1f7de8"
+content-hash = "75f629d75306c2ea044d705eceabf980538dca88a472e77148da1b589fdd6145"
 
 [metadata.files]
 asn1crypto = [
@@ -584,6 +606,8 @@ flake8-import-order = [
 ]
 greenlet = []
 idna = []
+jinja2 = []
+markupsafe = []
 mccabe = []
 mypy-extensions = [
     {file = "mypy_extensions-0.4.3-py2.py3-none-any.whl", hash = "sha256:090fedd75945a69ae91ce1303b5824f428daf5a028d2f6ab8a299250a846f15d"},
