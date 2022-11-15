@@ -268,5 +268,5 @@ class table_compare:
         environment = jinja2.Environment()
         template = environment.from_string(sql)
         sql_formatted = template.render(context)
-        print(sql_formatted)
+
         self.sf_ctx.execute_sql(sql_formatted)
