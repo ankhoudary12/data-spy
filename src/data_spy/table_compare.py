@@ -2,6 +2,8 @@
 
 import logging
 
+import column_data_test_sql
+
 from decouple import config
 
 import jinja2
@@ -9,6 +11,8 @@ import jinja2
 import pandas as pd
 
 from snowflake_utils import snowflake_ctx
+
+from tabulate import tabulate
 
 
 logging.basicConfig(level=logging.INFO)
@@ -150,9 +154,41 @@ class table_compare:
         """
         # get column names as a df and convert to list
         column_df = self.sf_ctx.sql_to_df(sql)
-        columns = column_df["COLUMN_NAME"].values.tolist()
+        columns = column_df["COLUMN_NAME"].str.lower().values.tolist()
 
         return columns
+
+    def get_column_data_types_in_table(
+        self, database: str, schema: str, table: str
+    ) -> dict:
+        """Gets dict of column name and data type for all columns in a table.
+
+        Args:
+            database: name of database.
+            schema: name of schema.
+            table: name of table.
+
+        Returns:
+            dict: Dictionary with column names as keys, data types As values.
+        """
+
+        sql = f"""
+                SELECT
+                    column_name,
+                    data_type
+                FROM {database}.information_schema.columns
+                WHERE LOWER(table_schema) = '{schema}'
+                AND LOWER(table_name) = '{table}'
+            """
+
+        df = self.sf_ctx.sql_to_df(sql)
+        data_type_mapping = dict(
+            zip(
+                df["COLUMN_NAME"].str.lower().values.tolist(),
+                df["DATA_TYPE"].str.lower().values.tolist(),
+            )
+        )
+        return data_type_mapping
 
     def summary_diff(self) -> pd.DataFrame:
         """Runs a high level diff on the dev/prod tables and materializes output in dev database.
@@ -195,6 +231,130 @@ class table_compare:
 
         return self.sf_ctx.sql_to_df(sql)
 
+    def column_level_diff(self) -> pd.DataFrame:
+        """Runs a column level diff between two tables. The types of tests ran depend on the data type of the column.
+
+        Args:
+            None
+
+        Returns:
+            DataFrame: DataFrame representing column level diff of the table.
+        """
+        # just need the dev data types since they will be the same (this is an assumption, ha!)
+        dev_data_types = self.get_column_data_types_in_table(
+            self.dev_database, self.dev_schema, self.dev_table
+        )
+
+        dev_columns = self.get_columns_in_table(
+            self.dev_database, self.dev_schema, self.dev_table
+        )
+
+        prod_columns = self.get_columns_in_table(
+            self.prod_database, self.prod_schema, self.prod_table
+        )
+
+        # only want to run tests on columns that appear in both dev/prod
+        columns_in_both = set(dev_columns).intersection(set(prod_columns))
+
+        for column in dev_data_types.keys():
+            if column in columns_in_both:
+                pass
+            else:
+                del dev_data_types[column]
+
+        # now we need a main loop to execute a column level compare for each column.
+        # each datatype can have multiple column level tests associated with them, let's simplify.
+
+        default_datatype_mapping = {
+            "number": "number",
+            "float": "number",
+            "text": "text",
+            "boolean": "boolean",
+            "timestamp_ntz": "timestamp",
+            "timestamp_tz": "timestamp",
+            "date": "timestamp",
+        }
+
+        test_context = {
+            "dev_database": self.dev_database,
+            "dev_schema": self.dev_schema,
+            "dev_table": self.dev_table,
+            "prod_database": self.prod_database,
+            "prod_schema": self.prod_schema,
+            "prod_table": self.prod_table,
+            "dev_freshness_key": self.dev_freshness_key,
+            "prod_freshness_key": self.prod_freshness_key,
+        }
+
+        # create mapping of which column level tests to run for each data type
+        tests_to_run = {
+            "number": ["avg", "sum", "min", "max", "count_nulls"],
+            "text": ["count_nulls", "unique"],
+            "boolean": ["count_nulls"],
+            "timestamp": ["min", "max"],
+        }
+
+        test_formula_mapping = {
+            "avg": column_data_test_sql.avg_formula,
+            "sum": column_data_test_sql.sum_formula,
+            "min": column_data_test_sql.min_formula,
+            "max": column_data_test_sql.max_formula,
+            "count_nulls": column_data_test_sql.count_nulls_formula,
+            "unique": column_data_test_sql.unique_formula,
+        }
+
+        df_list = []
+        for column in dev_data_types.keys():
+            # establish which types of tests to use.
+            data_type_test = default_datatype_mapping[dev_data_types[column]]
+            tests = tests_to_run[data_type_test]
+
+            for test in tests:
+                print(f"Running: {test} test on column: {column}")
+                test_context["column_name"] = column
+                test_context["test_name"] = test
+                test_context["test_formula"] = test_formula_mapping[test].format(
+                    column_name=column
+                )
+
+                # check if we need to run a datediff type diff or just normal % diff
+                if data_type_test == "timestamp" and test in ["min", "max"]:
+                    test_context[
+                        "diff_formula"
+                    ] = column_data_test_sql.timestamp_diff_formula.format(
+                        prod=self.prod_schema, dev=self.dev_schema
+                    )
+                else:
+                    test_context[
+                        "diff_formula"
+                    ] = column_data_test_sql.standard_diff_formula.format(
+                        prod=self.prod_schema, dev=self.dev_schema
+                    )
+
+                sql = column_data_test_sql.template.format(**test_context)
+
+                df = self.sf_ctx.sql_to_df(sql)
+                df_list.append(df)
+
+            # if data_type_test == "number":
+            #     test_context["column_name"] = column
+            #     test_context["test_name"] = "avg"
+            #     test_context["test_formula"] = column_data_test_sql.avg_formula.format(
+            #         column_name=column
+            #     )
+            #     test_context[
+            #         "diff_formula"
+            #     ] = column_data_test_sql.standard_diff_formula.format(
+            #         prod=self.prod_schema, dev=self.dev_schema
+            #     )
+
+            #     sql = column_data_test_sql.template.format(**test_context)
+
+            #     df = self.sf_ctx.sql_to_df(sql)
+            #     df_list.append(df)
+
+        return pd.concat(df_list)
+
     def row_level_diff(self) -> None:
         """Executes a row level diff of the two tables and outputs a new table in the dev schema."""
 
@@ -209,7 +369,7 @@ class table_compare:
         # we want to materialize this output all intra-database since it could be a large dataset
         # using jinja2 formatting to prefix all column names with dev/prod to avoid duplicate column error
         sql = """
-        CREATE OR REPLACE TABLE {{ dev_database }}.{{ dev_schema }}.{{ dev_table }}_raw_diff AS (
+        CREATE OR REPLACE TABLE {{ dev_database }}.{{ dev_schema }}.{{ dev_table }}_row_level_diff AS (
 
             WITH dev AS (
                 SELECT
@@ -246,7 +406,6 @@ class table_compare:
             SELECT
                 *
             FROM joined
-            WHERE diff_type != 'equal'
             );
         """
 
@@ -270,3 +429,14 @@ class table_compare:
         sql_formatted = template.render(context)
 
         self.sf_ctx.execute_sql(sql_formatted)
+
+
+tc = table_compare("fct_parachute_order_lines")
+
+data_mapping = tc.get_column_data_types_in_table(
+    "analytics", "dev_akhoudary", "fct_parachute_order_lines"
+)
+
+df = tc.column_level_diff()
+
+print(tabulate(df, headers="keys", tablefmt="psql"))

@@ -107,3 +107,24 @@ class schema_compare:
         self.sf_ctx.write_df_to_snowflake(
             summary_df, self.dev_database, self.dev_schema, "data_diff_summary"
         )
+
+    def schema_compare_row_level_diff(self) -> None:
+        """Creates a table compare object for each table, runs the row__level_diff() method.
+
+        Args:
+            None
+
+        Returns:
+            None: Instead materailzies the results all within the Snowflake database since this can
+            be a computationally intensive operation.
+        """
+
+        for table in self.tables_to_compare:
+            tc = table_compare(table)
+            logging.info(f"Running the row_level_diff() for {table}")
+            tc.row_level_diff()
+
+
+sc = schema_compare("analytics", "dev_akhoudary")
+
+sc.schema_compare_row_level_diff()
