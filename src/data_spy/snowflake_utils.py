@@ -110,19 +110,13 @@ class snowflake_ctx:
         engine = create_engine(conn_string)
         con = engine.connect()
 
-        try:
-            df.to_sql(
-                name=table_name,
-                con=engine,
-                if_exists="replace",
-                index=False,
-                method=pd_writer,
-            )
-
-            logging.info(f"Successfully created: {table_name}")
-
-        except BaseException:
-            logging.info(f"Error in creating: {table_name}")
+        df.to_sql(
+            name=table_name,
+            con=engine,
+            if_exists="replace",
+            index=False,
+            method=pd_writer,
+        )
 
         con.close()
         engine.dispose()

@@ -37,21 +37,21 @@ SELECT
     table_name,
     column_name,
     test,
-    {prod_schema},
-    {dev_schema},
-    {diff_formula} AS diff
+    {prod_schema} :: text AS {prod_schema},
+    {dev_schema} :: text AS {dev_schema},
+    {diff_formula} :: text AS diff
 FROM pivot
 """
 
 
 # test formulas
-avg_formula = "AVG({column_name})"
-sum_formula = "SUM({column_name})"
+avg_formula = "ROUND(AVG({column_name}),2)"
+sum_formula = "ROUND(SUM({column_name}),2)"
 min_formula = "MIN({column_name})"
 max_formula = "MAX({column_name})"
 unique_formula = "COUNT(DISTINCT {column_name})"
 count_nulls_formula = "SUM(CASE WHEN {column_name} IS NULL THEN 1 ELSE 0 END)"
 
 # diff formulas
-standard_diff_formula = "(({dev} - {prod}) / NULLIF({prod}, 0)) * 100"
+standard_diff_formula = "ROUND(((({dev} - {prod}) / NULLIF({prod}, 0)) * 100),2)"
 timestamp_diff_formula = "TIMESTAMPDIFF('hour', {dev}, {prod})"

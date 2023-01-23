@@ -35,7 +35,7 @@ class schema_compare:
         self.prod_schema = prod_schema
 
         if not table_regex:
-            self.table_regex = "fct_.*|dim_.*"
+            self.table_regex = "fct_.*"
         else:
             self.table_regex = table_regex
 
@@ -94,7 +94,7 @@ class schema_compare:
         # create empty list to store all of the dataframes
         df_list = []
         for table in self.tables_to_compare:
-            tc = table_compare(table)
+            tc = table_compare(self.dev_schema, table)
             df = tc.summary_diff()
             df_list.append(df)
 
@@ -105,7 +105,27 @@ class schema_compare:
         print(tabulate(summary_df, headers="keys", tablefmt="psql"))
 
         self.sf_ctx.write_df_to_snowflake(
-            summary_df, self.dev_database, self.dev_schema, "data_diff_summary"
+            summary_df, self.dev_database, self.dev_schema, "data_diff_overall_summary"
+        )
+
+    def schema_compare_column_level_diff(self) -> None:
+        """Creates a table compare object for each table, runs the column_level_diff() method."""
+
+        df_list = []
+        for table in self.tables_to_compare:
+            tc = table_compare(self.dev_schema, table)
+            df = tc.column_level_diff()
+            df_list.append(df)
+
+        column_compare_df = pd.concat(df_list)
+        print("Column Level Output: ")
+        print(tabulate(column_compare_df, headers="keys", tablefmt="psql"))
+
+        self.sf_ctx.write_df_to_snowflake(
+            column_compare_df,
+            self.dev_database,
+            self.dev_schema,
+            "data_diff_column_level_summary",
         )
 
     def schema_compare_row_level_diff(self) -> None:
@@ -120,11 +140,6 @@ class schema_compare:
         """
 
         for table in self.tables_to_compare:
-            tc = table_compare(table)
+            tc = table_compare(self.dev_schema, table)
             logging.info(f"Running the row_level_diff() for {table}")
             tc.row_level_diff()
-
-
-sc = schema_compare("analytics", "dev_akhoudary")
-
-sc.schema_compare_row_level_diff()

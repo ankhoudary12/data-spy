@@ -20,6 +20,7 @@ logging.basicConfig(level=logging.INFO)
 prod_database = config("PROD_DATABASE")
 prod_schema = config("PROD_SCHEMA")
 model_meta_table = config("MODEL_META_TABLE")
+column_model_meta_table = config("COLUMN_LEVEL_META_TABLE")
 
 
 class table_compare:
@@ -27,16 +28,17 @@ class table_compare:
     Assumes this is a dbt implementation where dev/prod tables are the same name, different schemas.
     """
 
-    def __init__(self, table: str) -> None:
+    def __init__(self, schema: str, table: str) -> None:
         """Initialize with table names."""
         self.dev_table = table
         self.prod_table = table
 
         self.dev_database = "analytics"
-        self.dev_schema = "dev_akhoudary"
+        self.dev_schema = schema
         self.prod_database = prod_database
         self.prod_schema = prod_schema
         self.model_meta_table = model_meta_table
+        self.column_model_meta_table = column_model_meta_table
 
         self.sf_ctx = snowflake_ctx()
 
@@ -190,6 +192,35 @@ class table_compare:
         )
         return data_type_mapping
 
+    def get_columns_to_audit(self, database: str, schema: str, table: str) -> list:
+        """Runs a query to get the columns marked to audit by this tool.
+        Not every column makes sense to run tests on, like id fields that are not primary keys.
+
+        Args:
+            database: name of database.
+            schema: name of schema.
+            table: name of table.
+
+        Returns:
+            list: column names to audit.
+
+
+        """
+
+        sql = f"""
+        SELECT
+            column_name
+        FROM { database }.{ schema }.{ self.column_model_meta_table }
+        WHERE model_name = '{ table }'
+        AND column_meta['data-diff'] = 'true'
+        
+        """
+
+        column_df = self.sf_ctx.sql_to_df(sql)
+        columns = column_df["COLUMN_NAME"].str.lower().values.tolist()
+
+        return columns
+
     def summary_diff(self) -> pd.DataFrame:
         """Runs a high level diff on the dev/prod tables and materializes output in dev database.
 
@@ -219,13 +250,13 @@ class table_compare:
             '{ self.dev_table }' AS table_name,
             (SELECT COUNT(*) FROM dev ) AS rowcount_dev,
             (SELECT COUNT(*) FROM prod ) AS rowcount_prod,
-            (rowcount_dev - rowcount_prod) / rowcount_prod AS rowcount_diff,
+            ((rowcount_dev - rowcount_prod) / rowcount_prod) * 100 AS rowcount_diff,
             (SELECT COUNT(*) FROM { self.dev_database }.information_schema.columns WHERE LOWER(table_schema) = '{ self.dev_schema }' AND LOWER(table_name) = '{ self.dev_table }') AS column_count_dev,
             (SELECT COUNT(*) FROM { self.prod_database }.information_schema.columns WHERE LOWER(table_schema) = '{ self.prod_schema }' AND LOWER(table_name) = '{ self.prod_table }') AS column_count_prod,
-            (column_count_dev - column_count_prod) / column_count_prod AS column_count_diff,
+            ((column_count_dev - column_count_prod) / column_count_prod) * 100 AS column_count_diff,
             (SELECT COUNT(DISTINCT { self.dev_pkey }) FROM dev ) AS distinct_pkey_dev,
             (SELECT COUNT(DISTINCT { self.prod_pkey }) FROM prod ) AS distinct_pkey_prod,
-            (distinct_pkey_dev - distinct_pkey_prod) / distinct_pkey_prod AS distinct_pkey_diff
+            ((distinct_pkey_dev - distinct_pkey_prod) / distinct_pkey_prod) * 100 AS distinct_pkey_diff
             ;
         """
 
@@ -253,11 +284,18 @@ class table_compare:
             self.prod_database, self.prod_schema, self.prod_table
         )
 
+        columns_to_audit = self.get_columns_to_audit(
+            self.prod_database, self.prod_schema, self.prod_table
+        )
+
         # only want to run tests on columns that appear in both dev/prod
         columns_in_both = set(dev_columns).intersection(set(prod_columns))
 
-        for column in dev_data_types.keys():
-            if column in columns_in_both:
+        # now intersect with the columns to actually audit
+        columns_to_run_tests = columns_in_both.intersection(set(columns_to_audit))
+
+        for column in list(dev_data_types.keys()):
+            if column in columns_to_run_tests:
                 pass
             else:
                 del dev_data_types[column]
@@ -336,23 +374,6 @@ class table_compare:
                 df = self.sf_ctx.sql_to_df(sql)
                 df_list.append(df)
 
-            # if data_type_test == "number":
-            #     test_context["column_name"] = column
-            #     test_context["test_name"] = "avg"
-            #     test_context["test_formula"] = column_data_test_sql.avg_formula.format(
-            #         column_name=column
-            #     )
-            #     test_context[
-            #         "diff_formula"
-            #     ] = column_data_test_sql.standard_diff_formula.format(
-            #         prod=self.prod_schema, dev=self.dev_schema
-            #     )
-
-            #     sql = column_data_test_sql.template.format(**test_context)
-
-            #     df = self.sf_ctx.sql_to_df(sql)
-            #     df_list.append(df)
-
         return pd.concat(df_list)
 
     def row_level_diff(self) -> None:
@@ -429,14 +450,3 @@ class table_compare:
         sql_formatted = template.render(context)
 
         self.sf_ctx.execute_sql(sql_formatted)
-
-
-tc = table_compare("fct_parachute_order_lines")
-
-data_mapping = tc.get_column_data_types_in_table(
-    "analytics", "dev_akhoudary", "fct_parachute_order_lines"
-)
-
-df = tc.column_level_diff()
-
-print(tabulate(df, headers="keys", tablefmt="psql"))
