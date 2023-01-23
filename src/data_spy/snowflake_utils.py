@@ -14,11 +14,11 @@ from snowflake.connector.pandas_tools import pd_writer
 
 logging.basicConfig(level=logging.INFO)
 
-user = config("SNOWFLAKE_USER")
-password = config("SNOWFLAKE_PASSWORD")
-account = config("SNOWFLAKE_ACCOUNT")
-role = config("SNOWFLAKE_ROLE")
-warehouse = config("SNOWFLAKE_WAREHOUSE")
+user = config("DS_SNOWFLAKE_USER")
+password = config("DS_SNOWFLAKE_PASSWORD")
+account = config("DS_SNOWFLAKE_ACCOUNT")
+role = config("DS_SNOWFLAKE_ROLE")
+warehouse = config("DS_SNOWFLAKE_WAREHOUSE")
 
 
 class snowflake_ctx:

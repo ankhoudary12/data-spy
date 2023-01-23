@@ -13,8 +13,8 @@ from .table_compare import table_compare
 
 logging.basicConfig(level=logging.INFO)
 
-prod_database = config("PROD_DATABASE")
-prod_schema = config("PROD_SCHEMA")
+prod_database = config("DS_PROD_DATABASE")
+prod_schema = config("DS_PROD_SCHEMA")
 
 
 class schema_compare:

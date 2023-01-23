@@ -14,10 +14,10 @@ from .snowflake_utils import snowflake_ctx
 
 logging.basicConfig(level=logging.INFO)
 
-prod_database = config("PROD_DATABASE")
-prod_schema = config("PROD_SCHEMA")
-model_meta_table = config("MODEL_META_TABLE")
-column_model_meta_table = config("COLUMN_LEVEL_META_TABLE")
+prod_database = config("DS_PROD_DATABASE")
+prod_schema = config("DS_PROD_SCHEMA")
+model_meta_table = config("DS_MODEL_META_TABLE")
+column_model_meta_table = config("DS_COLUMN_LEVEL_META_TABLE")
 
 
 class table_compare:
