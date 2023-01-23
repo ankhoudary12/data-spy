@@ -247,13 +247,13 @@ class table_compare:
             '{ self.dev_table }' AS table_name,
             (SELECT COUNT(*) FROM dev ) AS rowcount_dev,
             (SELECT COUNT(*) FROM prod ) AS rowcount_prod,
-            ((rowcount_dev - rowcount_prod) / rowcount_prod) * 100 AS rowcount_diff,
+            ((rowcount_dev - rowcount_prod) / rowcount_prod) AS rowcount_diff,
             (SELECT COUNT(*) FROM { self.dev_database }.information_schema.columns WHERE LOWER(table_schema) = '{ self.dev_schema }' AND LOWER(table_name) = '{ self.dev_table }') AS column_count_dev,
             (SELECT COUNT(*) FROM { self.prod_database }.information_schema.columns WHERE LOWER(table_schema) = '{ self.prod_schema }' AND LOWER(table_name) = '{ self.prod_table }') AS column_count_prod,
-            ((column_count_dev - column_count_prod) / column_count_prod) * 100 AS column_count_diff,
+            ((column_count_dev - column_count_prod) / column_count_prod) AS column_count_diff,
             (SELECT COUNT(DISTINCT { self.dev_pkey }) FROM dev ) AS distinct_pkey_dev,
             (SELECT COUNT(DISTINCT { self.prod_pkey }) FROM prod ) AS distinct_pkey_prod,
-            ((distinct_pkey_dev - distinct_pkey_prod) / distinct_pkey_prod) * 100 AS distinct_pkey_diff
+            ((distinct_pkey_dev - distinct_pkey_prod) / distinct_pkey_prod) AS distinct_pkey_diff
             ;
         """
 
