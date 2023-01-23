@@ -5,11 +5,11 @@ from decouple import config
 
 import pandas as pd
 
-from snowflake_utils import snowflake_ctx
+from .snowflake_utils import snowflake_ctx
 
 from tabulate import tabulate
 
-from table_compare import table_compare
+from .table_compare import table_compare
 
 logging.basicConfig(level=logging.INFO)
 

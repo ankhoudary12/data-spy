@@ -24,6 +24,9 @@ flake8-bugbear = "^22.10.27"
 flake8-annotations = "^2.9.1"
 flake8-docstrings = "^1.6.0"
 
+[tool.poetry.scripts]
+data-spy = "data_spy.data_spy:main"
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"

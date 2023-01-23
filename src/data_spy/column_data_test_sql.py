@@ -53,5 +53,5 @@ unique_formula = "COUNT(DISTINCT {column_name})"
 count_nulls_formula = "SUM(CASE WHEN {column_name} IS NULL THEN 1 ELSE 0 END)"
 
 # diff formulas
-standard_diff_formula = "ROUND(((({dev} - {prod}) / NULLIF({prod}, 0)) * 100),2)"
+standard_diff_formula = "ROUND(((({dev} - {prod}) / NULLIF({prod}, 0))),2)"
 timestamp_diff_formula = "TIMESTAMPDIFF('hour', {dev}, {prod})"

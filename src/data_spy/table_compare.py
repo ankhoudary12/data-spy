@@ -2,17 +2,14 @@
 
 import logging
 
-import column_data_test_sql
-
 from decouple import config
 
 import jinja2
 
 import pandas as pd
 
-from snowflake_utils import snowflake_ctx
-
-from tabulate import tabulate
+from . import column_data_test_sql
+from .snowflake_utils import snowflake_ctx
 
 
 logging.basicConfig(level=logging.INFO)
